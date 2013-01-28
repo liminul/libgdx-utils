@@ -1,0 +1,9 @@
+.DS_Store
+local.properties
+.idea/
+bin/
+dist/
+gen/
+out/
+target/
+tmp/
