@@ -1,6 +1,7 @@
 .DS_Store
 local.properties
 .idea/
+.settings/
 bin/
 dist/
 gen/
