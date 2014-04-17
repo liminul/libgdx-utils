@@ -9,18 +9,24 @@ import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.utils.GdxRuntimeException;
 
 public class Assets {
-	private static final String	ASSET_MISSING	= "Missing asset";
+	private static final String ASSET_MISSING = "Missing asset: %s";
 
-	private static final String	PROPS_DIR		= "props";
-	private static final String	PROPS_EXT		= ".properties";
+	private static final String PROPS_DIR = "props";
+	private static final String PROPS_EXT = ".properties";
 
 	public static FileHandle getProperties(final String name) throws MissingResourceException {
 		final String filename = PROPS_DIR + File.separator + name + PROPS_EXT;
 
 		try {
-			return Gdx.files.internal(filename);
+			FileHandle handle = Gdx.files.internal(filename);
+
+			if (handle.exists()) {
+				return handle;
+			}
 		} catch (final GdxRuntimeException e) {
-			throw new MissingResourceException(ASSET_MISSING, FileType.Internal.toString(), filename);
+			// Fall through to below Exception
 		}
+
+		throw new MissingResourceException(String.format(ASSET_MISSING, filename), FileType.Internal.toString(), filename);
 	}
 }

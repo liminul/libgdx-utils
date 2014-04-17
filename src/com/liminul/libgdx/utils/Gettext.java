@@ -2,6 +2,8 @@ package com.liminul.libgdx.utils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -12,41 +14,86 @@ import java.util.ResourceBundle;
 
 import com.badlogic.gdx.files.FileHandle;
 
-public class Gettext {
-	private static class PropertyResourceBundleWithParent extends PropertyResourceBundle {
-		public PropertyResourceBundleWithParent(final InputStream stream, final ResourceBundle parent) throws IOException {
-			super(stream);
+// TODO: Documentation
+// TODO: Synchronization?
+// TODO: final defaultBundle / dependence on Locale being first
+public class GetText {
+	private static final String STRINGS_FILENAME = "strings";
 
-			setParent(parent);
+	private static Locale locale = Locale.getDefault();
+	private static final ResourceBundle defaultBundle = getDefaultBundle();
+	private static ResourceBundle bundle = defaultBundle;
+
+	public static ResourceBundle getBundle(final Locale locale) {
+		if (GetText.locale.equals(locale)) {
+			return bundle;
+		}
+
+		if (Locale.getDefault().equals(locale)) {
+			return defaultBundle;
+		}
+
+		List<FileHandle> handles = buildHandles(locale, false);
+
+		if (handles.isEmpty()) {
+			return defaultBundle;
+		} else {
+			return buildBundle(handles);
 		}
 	}
 
-	private static final String		STRINGS_FILENAME	= "strings";
-
-	private static ResourceBundle	bundle;
-	private static ResourceBundle	defaultBundle;
-
-	static {
-		init(Locale.getDefault());
-	}
-
-	private static void buildBundle(final List<FileHandle> handles) {
-		try {
-			bundle = new PropertyResourceBundleWithParent(handles.get(0).read(), defaultBundle);
-
-			for (int i = 1; i < handles.size(); i++) {
-				bundle = new PropertyResourceBundleWithParent(handles.get(i).read(), bundle);
-			}
-		} catch (final IOException e) {
-			bundle = null;
-		}
+	public static Locale getLocale() {
+		return locale;
 	}
 
 	public static String getString(final String key) {
 		return bundle.getString(key);
 	}
 
-	private static FileHandle getStringsFile(final String name) {
+	public static void load(final Locale locale) {
+		bundle = getBundle(locale);
+
+		GetText.locale = locale;
+	}
+
+	private static ResourceBundle buildBundle(final List<FileHandle> handles) {
+		if (handles.isEmpty()) {
+			return defaultBundle;
+		}
+
+		ResourceBundle bundle = defaultBundle;
+
+		try {
+			for (FileHandle handle : handles) {
+				bundle = new PropertyResourceBundleWithParent(handle.read(), bundle);
+			}
+		} catch (final Exception e) {
+			Log.e(GetText.class, e);
+		}
+
+		return bundle;
+	}
+
+	private static List<FileHandle> buildHandles(final Locale locale, final boolean isDefault) {
+		final List<FileHandle> handles = new ArrayList<>(isDefault ? 3 : 2);
+
+		if (isDefault) {
+			handles.add(getStringsFileHandle(STRINGS_FILENAME));
+		}
+
+		handles.add(getStringsFileHandle(STRINGS_FILENAME + "_" + locale.getLanguage()));
+		handles.add(getStringsFileHandle(STRINGS_FILENAME + "_" + locale));
+
+		handles.removeAll(Collections.singletonList(null));
+
+		return handles;
+	}
+
+	private static ResourceBundle getDefaultBundle() {
+		return buildBundle(buildHandles(locale, true));
+	}
+
+	private static FileHandle getStringsFileHandle(final String name) {
 		try {
 			return Assets.getProperties(name);
 		} catch (final MissingResourceException e) {
@@ -54,32 +101,11 @@ public class Gettext {
 		}
 	}
 
-	public static void init(final Locale locale) {
-		final boolean isDefaultLocale = Locale.getDefault().equals(locale);
+	private static class PropertyResourceBundleWithParent extends PropertyResourceBundle {
+		public PropertyResourceBundleWithParent(final InputStream stream, final ResourceBundle parent) throws IOException {
+			super(new InputStreamReader(stream, StandardCharsets.UTF_8));
 
-		if (isDefaultLocale && defaultBundle != null) {
-			bundle = defaultBundle;
-
-			return;
-		}
-
-		final List<FileHandle> handles = new ArrayList<FileHandle>(3);
-
-		if (isDefaultLocale) {
-			handles.add(getStringsFile(STRINGS_FILENAME));
-		}
-
-		handles.add(getStringsFile(STRINGS_FILENAME + "_" + locale.getLanguage()));
-		handles.add(getStringsFile(STRINGS_FILENAME + "_" + locale));
-
-		handles.removeAll(Collections.singletonList(null));
-
-		if (handles.size() > 0) {
-			buildBundle(handles);
-
-			if (isDefaultLocale) {
-				defaultBundle = bundle;
-			}
+			setParent(parent);
 		}
 	}
 }
